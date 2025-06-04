@@ -5,7 +5,7 @@ import { useEffect, useRef } from 'react';
 interface PreviewProps {
   html: string;
   css: string;
-  jsx: string;
+  jsx: string; // Agora pode ser TSX
 }
 
 export default function Preview({ html, css, jsx }: PreviewProps) {
@@ -22,14 +22,14 @@ export default function Preview({ html, css, jsx }: PreviewProps) {
         <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"><\/script>
         <script src="https://unpkg.com/@babel/standalone/babel.min.js"><\/script>
         
-        <script type="text/babel">
+        <script type="text/babel" data-presets="react,typescript"> // Adicionado data-presets="react,typescript"
           try {
-            ${jsx}; /* <--- ADICIONE O PONTO E VÍRGULA AQUI */
+            ${jsx};
           } catch (error) {
             const errorContainer = document.createElement('div');
             errorContainer.style.color = 'red';
             errorContainer.style.fontFamily = 'monospace';
-            errorContainer.innerHTML = '<h3>Erro no seu código JSX:</h3><pre>' + error + '</pre>';
+            errorContainer.innerHTML = '<h3>Erro no seu código JSX/TSX:</h3><pre>' + error + '</pre>';
             document.body.appendChild(errorContainer);
             console.error(error);
           }

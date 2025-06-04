@@ -33,6 +33,7 @@ model Chat {
   htmlCode  String   @default("<div id=\"root\"></div>") @db.Text
   cssCode   String   @default("/* Estilos CSS */") @db.Text
   jsxCode   String   @default("const App = () => <h1>Bem-vindo!</h1>;\n\nconst root = ReactDOM.createRoot(document.getElementById('root'));\nroot.render(<App />);") @db.Text
+  filesJson Json? 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

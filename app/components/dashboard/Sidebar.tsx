@@ -37,6 +37,9 @@ export default function SidebarV0() {
   const { data: session } = useSession();
   const chatId = params.chatId as string;
 
+  // URL do Webhook do n8n
+  const N8N_WEBHOOK_URL = "https://n8n-n8n.go8xn6.easypanel.host/webhook/gemini";
+
   // Busca a quantidade de tokens do usuário no backend
   const fetchUserTokens = useCallback(async () => {
     try {
@@ -66,6 +69,7 @@ export default function SidebarV0() {
         const current = dataChats.find(c => c.id === chatId);
         setCurrentChatName(current?.name || "Chat não encontrado");
       } else if (dataChats.length > 0 && !chatId) {
+        // Se não há chatId na URL mas há chats, redireciona para o mais recente
         router.replace(`/dashboard/${dataChats[0].id}`);
       } else {
         setCurrentChatName("Nenhum chat disponível");
@@ -96,24 +100,76 @@ export default function SidebarV0() {
       setChats(prevChats => [newChat, ...prevChats].sort((a,b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
       router.push(`/dashboard/${newChat.id}`);
     } catch (error) {
-      // Tratar erro na UI
+      console.error("Erro ao criar novo chat:", error);
+      // Tratar erro na UI, talvez com um toast ou mensagem
     }
   };
 
-  const handleGenerate = () => {
-    if (!prompt.trim() || !chatId) return;
-    document.dispatchEvent(new CustomEvent('triggerGenerateFromSidebar', { 
-      detail: { prompt } 
-    }));
+  const handleGenerate = async () => {
+    if (!prompt.trim() || !chatId || userTokens < 5) {
+      setErrorLoadingChats("Prompt vazio, chat não selecionado ou tokens insuficientes.");
+      return;
+    }
+
+    setIsGenerating(true);
+    setErrorLoadingChats(null); // Limpa erros anteriores
+
+    // Notificar o Sandbox que a geração começou (para mostrar loader)
+    document.dispatchEvent(new CustomEvent('generationStarted'));
+
+    try {
+      // Para o n8n, precisamos enviar o código existente do frontend e backend
+      // Se o Sandbox já tem esses estados, você pode passá-los aqui.
+      // Para simplificar, vou assumir que o Sandbox passará o código atualizado
+      // para o n8n via o evento triggerGenerateFromSidebar se necessário.
+      // No entanto, para o fluxo n8n, o código existente deve vir do front-end.
+      // Aqui, vamos enviar o prompt e o chatId para o n8n.
+      // O n8n precisará buscar o código existente do BD ou recebê-lo de alguma forma.
+      // Para este exemplo, vamos assumir que o n8n buscará, ou que o código existente
+      // não é estritamente necessário para o primeiro prompt.
+
+      // Se você precisa enviar o código existente, o Sidebar precisaria ter acesso a ele.
+      // Isso geralmente é feito levantando o estado para um componente pai (DashboardLayout)
+      // ou usando um Context API. Por simplicidade, vamos enviar o que o n8n precisa
+      // e assumir que o n8n pode lidar com a ausência do código existente para o primeiro prompt.
+
+      // O Sandbox já tem os estados htmlCode, cssCode, jsxCode.
+      // Podemos disparar um evento para o Sandbox obter esses códigos e enviá-los para o n8n.
+      // Ou, mais diretamente, o Sidebar pode ter acesso a eles se forem passados como props
+      // ou via um contexto global.
+
+      // Para a integração direta com o n8n, o Sidebar precisa do código atual.
+      // Como o Sandbox é quem gerencia o código, vamos disparar um evento que o Sandbox
+      // irá capturar e, então, o Sandbox fará a chamada para o n8n, passando o código atual.
+      // Isso mantém a responsabilidade do código no Sandbox.
+
+      // Dispara o evento que o Sandbox irá capturar para chamar o n8n
+      document.dispatchEvent(new CustomEvent('triggerGenerateFromSidebar', { 
+        detail: { 
+          prompt: prompt,
+          // O Sandbox pode pegar o chatId do seu próprio estado/props
+          // e o código existente dos seus próprios estados (htmlCode, cssCode, jsxCode)
+        } 
+      }));
+
+      // O resto da lógica (atualização de tokens, chats) será acionada
+      // pelo evento 'generationComplete' disparado pelo Sandbox.
+
+    } catch (error) {
+      console.error("Erro ao iniciar geração via n8n:", error);
+      setErrorLoadingChats("Falha ao iniciar a geração: " + (error as Error).message);
+      setIsGenerating(false);
+      document.dispatchEvent(new CustomEvent('generationComplete', { detail: { error: true } }));
+    }
   };
 
   useEffect(() => {
     const handleGenerationStart = () => setIsGenerating(true);
     const handleGenerationComplete = () => {
       setIsGenerating(false);
-      setPrompt("");
-      fetchChatsAndCurrent();
-      fetchUserTokens();
+      setPrompt(""); // Limpa o prompt após a geração
+      fetchChatsAndCurrent(); // Atualiza a lista de chats
+      fetchUserTokens(); // Atualiza os tokens
     };
     document.addEventListener('generationStarted', handleGenerationStart);
     document.addEventListener('generationComplete', handleGenerationComplete);
@@ -157,6 +213,9 @@ export default function SidebarV0() {
             <AlertTriangle className="w-4 h-4" />
             Você está sem créditos suficientes (mínimo de 5 tokens necessários). Faça upgrade do plano.
           </div>
+        )}
+        {errorLoadingChats && (
+          <p className="text-xs text-destructive text-center p-1">{errorLoadingChats}</p>
         )}
         <div className="flex items-center justify-between">
           <Button variant="ghost" size="sm" className="text-muted-foreground rounded-md">
